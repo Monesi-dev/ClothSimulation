@@ -1,210 +1,87 @@
 from vpython import *
-import sys
+import argparse
+import logging
+from point import Point 
+from constraint import Spring 
+from simulation import Simulation
 
-# Create a Point and Spring Class
-# Create a Simulation Class (Factory, Singleton)
-# 1) Add Type Hints
-# 2) Create Spring Class
-# 3) Create Simulation Class
-
-class Point:
-
-    __slots__ = ('pos', 'prev_pos', 'mass', 'fixed', 'vel', 'acc', 'friction', 'object')
-
-    def __init__(self, pos: vector, mass: float, friction: float = 1, fixed: bool = False, integration: str = 'Verlet') -> None:
-
-        # Variable Declaration
-        self.pos = pos               # Position of the Node
-        self.prev_pos = pos          # Used for Numerical Integration
-        self.mass = mass             # Mass of the Node
-        self.fixed = fixed           # Determines whether the Node is Fixed
-        self.vel = vector(0, 0, 0)   # Velocity of the Node
-        self.acc = vector(0, 0, 0)   # Acceleration of the Node
-        self.friction = friction     # Adds Friction if required
-        self.integration = integration      # Method Used for Numerical Integration
-
-        # Rendering the Node with a Sphere
-        self.object = sphere(
-            pos = pos,          # Position of the Node
-            radius = 0.1,         # Radius of the Node
-            color = color.red   # Color of the Node
-        )
-
-    def add_force(self, force: vector) -> None:
-        self.acc += force / self.mass   # Simply Computing Acceleration From Force
-
-    # Updates Position doing Numerical Integration and Renders the Node
-    def update(self, dt: float) -> None:
-
-        # If the point is fixed the position won't be updated
-        if self.fixed:  return
-
-        # Numerical Integration
-        print(sys.version)
-        match self.integration:
-            case 'Verlet':
-                disp = self.pos - self.prev_pos
-                self.acc -= self.friction * disp / dt
-                self.pos = 2 * self.pos - self.prev_pos + self.acc * dt ** 2
-                self.prev_pos = disp + self.prev_pos
-
-        # Numerical Integration
-        # self.acc -= self.friction * self.vel
-        # self.vel += self.acc * dt
-        # self.pos += self.vel * dt
-
-        self.acc = vector(0, 0, 0)
-
-        # Rendering the Node
-        self.object.pos = self.pos
-
-class Spring:
-
-    __slots__ = ('node1', 'node2', 'length', 'elasticity', 'line')
-
-    def __init__(self, node1: Point, node2: Point, length: float, elasticity: float) -> None:
-
-        # Variable Declaration
-        self.node1 = node1              # Node attached to the Beginning of the Spring
-        self.node2 = node2              # Node attached to the End of the Spring    
-        self.length = length            # Length at Rest
-        self.elasticity = elasticity    # Elasticity of the Spring
-
-        # Rendering the Spring
-        self.line = curve(self.node1.pos, self.node2.pos)
-
-    def apply_constraints(self):
-
-        # Compute Elastic Force
-        nodes_displacement = self.node1.pos - self.node2.pos
-        deformation = nodes_displacement.mag - self.length
-        elastic_force = deformation * self.elasticity * nodes_displacement.norm()
-
-        # Add Elastic Force to the two Nodes
-        self.node1.add_force(-1 * elastic_force)
-        self.node2.add_force(elastic_force)
-
-    def display(self):
-
-        # Rendering the Updated Spring 
-        self.line.modify(0, self.node1.pos)
-        self.line.modify(1, self.node2.pos)
-
-class Simulation:
-
-    __slots__ = ('points', 'springs', 'elasticity', 'mass', 'friction', 'gravity', 'dt')
-
-    def __init__(self, elasticity, mass, friction, gravity, dt):
-        self.points = []
-        self.springs = []
-        self.elasticity = elasticity
-        self.mass = mass
-        self.friction = friction
-        self.gravity = gravity
-        self.dt = dt
-
-    def rope(self):
-
-        points_num = 10
-        for i in range(points_num):
-            self.points.append(Point(
-                vector(i, -i / 3, 0),
-                self.mass,
-                self.friction,
-                (i == 0 or i == points_num - 1)
-            ))
-
-        springs_num = 9
-        for i in range(springs_num):
-            self.springs.append(Spring(
-                self.points[i],
-                self.points[i + 1],
-                0.5,
-                self.elasticity
-            ))
-        self.run()
-
-    def grid(self):
-
-        points_num = 100
-        for i in range(points_num):
-            self.points.append(Point(
-                vector((i % 10 - 4.5), 0, (i // 10 - 4.5)),
-                self.mass,
-                self.friction,
-                (i == 0 or i == 9 or i == 90 or i == 99)
-            ))
-
-        for i in range(points_num):
-            if (i % 10 != 9):
-                self.springs.append(Spring(
-                    self.points[i],
-                    self.points[i + 1],
-                    0.5,
-                    self.elasticity
-                ))
-            if (i // 10 != 9):
-                self.springs.append(Spring(
-                    self.points[i],
-                    self.points[i + 10],
-                    0.5,
-                    self.elasticity
-                ))
-        self.run()
-
-    def run(self):
-
-        dt, g = self.dt, self.gravity
-
-        while True:
-            rate(1/dt)
-            for spring in self.springs:
-                spring.apply_constraints()
-            for point in self.points:
-                point.add_force(point.mass * g) # A bit ugly
-                point.update(dt)
-            for spring in self.springs:
-                spring.display()
-            pass
+# Use Numba - Cannot work with this library
+# Fix Argparse with default values
+# Custom gravity 
+# Write C Modules to speed up the code - Useless
+# Create a New Simulation
 
 # UML is a general purpose modelling language
 # It is used to describe a system
-
+                    
 if __name__ == "__main__":
 
-    sim = Simulation(1000, 10, 0.5, vector(0,-9.81, 0), 0.01)
-    sim.grid()
 
     """
-    points_num = 5
-    springs_num = 4
-    points = []
-    for i in range(points_num):
-        points.append(Point(
-            vector(i, -i, 0),
-            10,
-            0.3,
-            (i == 0 or i == points_num - 1)
-        ))
-    springs = []
-    for i in range(springs_num):
-        springs.append(Spring(
-            points[i],
-            points[i + 1],
-            0.5,
-            100
-        ))
-    g = vector(0, -9.81, 0)
-    dt = 0.01
+        Setting up Argument Parsing using argparse 
 
-    while True:
-        rate(1/dt)
-        for spring in springs:
-            spring.apply_constraints()
-        for point in points:
-            point.add_force(point.mass * g) # A bit ugly
-            point.update(dt)
-        for spring in springs:
-            spring.display()
-        pass
+        I only read the type of simulation to run (rope default), the integration method that has
+        to be used (Verlet default) and the timestep (0.01 default)
     """
+    parser = argparse.ArgumentParser(
+        prog='Cloth Simulation',
+        description='These are the options that you can use with the script',
+        epilog='Check out the Readme file to have a clear and thorough understanding of how to use the script'
+    )
+    parser.add_argument('-t', '--type', default = 'rope')
+    parser.add_argument('-i', '--integration', default = 'Verlet')
+    parser.add_argument('-dt', '--deltatime', type = float, default = 0.01)
+    parser.add_argument('-f', '--friction', action = 'store_true', default = False)
+    parser.add_argument('-d', '--debug', action = 'store_true')
+    parser.add_argument('-gx', '--gravityx', type = float);
+    parser.add_argument('-gy', '--gravityy', type = float);
+    parser.add_argument('-gz', '--gravityz', type = float);
+    args = parser.parse_args()
+
+    simulation_object = args.type       # Object that is Simulated (e.g. rope, cloth)
+    integration = args.integration      # Integration Method Used
+    friction = args.friction            # Friction is used in the simulation or not
+    dt = args.deltatime                 # Timestep used for integration
+
+    # Get Custom Gravity
+    gravity_x = args.gravityx
+    gravity_y = args.gravityy
+    gravity_z = args.gravityz
+    if (gravity_x is None and gravity_y is None and gravity_z is None):
+        gravity = vector(0, -9.81, 0)
+    else:
+        gravity = vector(
+            0 if gravity_x is None else gravity_x,
+            0 if gravity_y is None else gravity_y,
+            0 if gravity_z is None else gravity_z
+        )
+
+    # Debug Mode 
+    if args.debug:
+        logging.basicConfig()
+        logging.getLogger().setLevel(logging.DEBUG)
+
+
+
+
+    """
+        Setting up the Simulation 
+    """
+    sim = Simulation(
+        elasticity = 1000, 
+        mass = 10, 
+        friction = friction, 
+        gravity = gravity, 
+        dt = dt, 
+        integration = integration 
+    )
+    match simulation_object:
+        case 'grid':
+            sim.grid()
+        case 'cloth':
+            sim.cloth1()
+        case 'cloth2':
+            sim.cloth2()
+        case _:
+            sim.rope()
+
